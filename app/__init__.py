@@ -19,7 +19,7 @@ def create_app():
     session.init_app(app)
 
     # Set up login manager
-    login_manager.login_view = 'auth.login'
+    login_manager.login_view = 'auth.auth_start'
     
     with app.app_context():
         # Import models
@@ -32,7 +32,7 @@ def create_app():
         
         # Register blueprints
         app.register_blueprint(auth_bp)
-        app.register_blueprint(dashboard_bp)
+        app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
         app.register_blueprint(api_bp, url_prefix='/api')
         
         # Create database tables
@@ -41,6 +41,11 @@ def create_app():
         @app.route('/')
         def index():
             from flask import redirect, url_for
-            return redirect(url_for('auth.login'))
+            return redirect(url_for('auth.auth_start'))
+        
+        @app.after_request
+        def after_request(response):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            return response
         
         return app 

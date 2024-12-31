@@ -16,14 +16,8 @@ class Config:
     # Deployment settings
     DEPLOYMENT_ENV = os.environ.get('DEPLOYMENT_ENV', 'development')
     
-    # For local development
-    if DEPLOYMENT_ENV == 'development':
-        SERVER_NAME = "127.0.0.1:5001"
-    else:
-        # For Azure App Service - using WEBSITE_SITE_NAME which is automatically set by Azure
-        SITE_NAME = os.environ.get('WEBSITE_SITE_NAME')
-        if SITE_NAME:
-            SERVER_NAME = f"{SITE_NAME}.azurewebsites.net"
+    # Session configuration
+    SESSION_TYPE = 'filesystem'
     
     # Microsoft Graph API Scopes
     SCOPE = [
