@@ -10,17 +10,32 @@ async function signIn() {
             "profile",
             "email"
         ],
-        prompt: "select_account"
+        prompt: "select_account",
+        redirectStartPage: window.location.href
     };
 
     try {
-        // Clear any existing sessions
+        // Check for existing session
         const accounts = msalInstance.getAllAccounts();
         if (accounts.length > 0) {
-            for (const account of accounts) {
-                await msalInstance.logoutRedirect({ account });
+            // Try silent token acquisition
+            try {
+                const silentRequest = {
+                    scopes: loginRequest.scopes,
+                    account: accounts[0],
+                    forceRefresh: false
+                };
+                const response = await msalInstance.acquireTokenSilent(silentRequest);
+                if (response) {
+                    window.location.href = '/dashboard';
+                    return;
+                }
+            } catch (error) {
+                if (error instanceof msal.InteractionRequiredAuthError) {
+                    // Token expired or other issue, proceed with login
+                    console.log('Silent token acquisition failed, proceeding with redirect');
+                }
             }
-            return;
         }
 
         // Proceed with login
@@ -29,6 +44,7 @@ async function signIn() {
         console.error('Error during sign in:', error);
         if (error.errorCode === "interaction_in_progress") {
             sessionStorage.clear();
+            localStorage.clear();
             window.location.reload();
         }
     }
