@@ -3,74 +3,103 @@ from flask_login import login_user, logout_user, login_required, current_user
 import msal
 from app.models import User
 from app import db
+import traceback
 from . import bp
 
 @bp.route('/auth-start')
 def auth_start():
     """Show the login page"""
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard.index'))
-    return render_template('auth/login.html')
+    try:
+        if current_user.is_authenticated:
+            return redirect(url_for('dashboard.index'))
+        return render_template('auth/login.html')
+    except Exception as e:
+        print(f"Error in auth_start: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': 'Internal server error'}), 500
 
 @bp.route('/callback', methods=['GET', 'POST'])
 def callback():
     try:
         if request.method == 'POST':
-            data = request.get_json()
-            print("Received callback data:", data)  # Debug log
+            print("Received POST request to /callback")  # Debug log
+            
+            try:
+                data = request.get_json()
+                print("Received callback data:", data)  # Debug log
+            except Exception as e:
+                print(f"Error parsing JSON: {str(e)}")
+                return jsonify({'error': 'Invalid JSON data'}), 400
             
             if not data:
+                print("No data provided in request")
                 return jsonify({'error': 'No data provided'}), 400
             
             account_info = data.get('account')
+            print("Account info:", account_info)  # Debug log
+            
             if not account_info:
+                print("No account info provided")
                 return jsonify({'error': 'No account info provided'}), 400
             
             # Get user info from account
             email = account_info.get('username')
             name = account_info.get('name', email)
             
-            if not email:
-                return jsonify({'error': 'No email provided'}), 400
+            print(f"Extracted email: {email}, name: {name}")  # Debug log
             
-            print(f"Processing user: {email}, {name}")  # Debug log
+            if not email:
+                print("No email provided in account info")
+                return jsonify({'error': 'No email provided'}), 400
             
             try:
                 # Create or update user
                 user = User.query.filter_by(email=email).first()
                 if not user:
-                    print(f"Creating new user: {email}")  # Debug log
+                    print(f"Creating new user: {email}")
                     user = User(email=email, name=name)
                     db.session.add(user)
                 elif user.name != name:
-                    print(f"Updating user name: {name}")  # Debug log
+                    print(f"Updating user name from {user.name} to {name}")
                     user.name = name
                 
                 db.session.commit()
-                login_user(user, remember=True)
+                print(f"Database operations successful for user: {email}")
                 
-                print(f"User logged in successfully: {email}")  # Debug log
-                return jsonify({
+                login_user(user, remember=True)
+                print(f"User logged in successfully: {email}")
+                
+                response_data = {
                     'success': True,
                     'redirect': url_for('dashboard.index'),
                     'message': 'Successfully logged in'
-                })
+                }
+                print("Sending response:", response_data)
+                return jsonify(response_data)
             
             except Exception as e:
                 db.session.rollback()
                 print(f"Database error: {str(e)}")
+                print(traceback.format_exc())
                 return jsonify({'error': f'Database error: {str(e)}'}), 500
             
         # Handle GET request
+        print("Received GET request to /callback")
         return redirect(url_for('auth.auth_start'))
 
     except Exception as e:
-        print(f"Error in callback: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        print(f"Unhandled error in callback: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
 
 @bp.route('/logout')
 @login_required
 def logout():
-    logout_user()
-    session.clear()
-    return redirect(url_for('auth.auth_start')) 
+    try:
+        logout_user()
+        session.clear()
+        return redirect(url_for('auth.auth_start'))
+    except Exception as e:
+        print(f"Error in logout: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': 'Logout failed'}), 500 
