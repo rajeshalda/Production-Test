@@ -13,10 +13,18 @@ async function signIn() {
     };
 
     try {
-        // Use loginRedirect instead of popup
+        // First, check if there's an existing interaction
+        await msalInstance.handleRedirectPromise();
+        
+        // Then proceed with login
         await msalInstance.loginRedirect(loginRequest);
     } catch (error) {
         console.error('Error during sign in:', error);
+        // If there's an interaction in progress error, try to clear it
+        if (error.errorCode === "interaction_in_progress") {
+            sessionStorage.clear();
+            window.location.reload();
+        }
     }
 }
 

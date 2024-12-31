@@ -20,6 +20,16 @@
         };
 
         const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+        // Handle the redirect promise when the page loads
+        msalInstance.handleRedirectPromise().then((response) => {
+            if (response) {
+                // If we have a response, we've just been redirected back from Microsoft
+                window.location.href = '/dashboard';
+            }
+        }).catch(error => {
+            console.error('Error handling redirect:', error);
+        });
     </script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </head>
