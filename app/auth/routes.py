@@ -10,8 +10,13 @@ from . import bp
 def auth_start():
     """Show the login page"""
     try:
+        # If user is already authenticated, redirect to dashboard
         if current_user.is_authenticated:
+            print(f"User {current_user.email} is already authenticated, redirecting to dashboard")
             return redirect(url_for('dashboard.index'))
+        
+        # Show login page for non-authenticated users
+        print("Showing login page for non-authenticated user")
         return render_template('auth/login.html')
     except Exception as e:
         print(f"Error in auth_start: {str(e)}")
@@ -22,11 +27,11 @@ def auth_start():
 def callback():
     try:
         if request.method == 'POST':
-            print("Received POST request to /callback")  # Debug log
+            print("Received POST request to /callback")
             
             try:
                 data = request.get_json()
-                print("Received callback data:", data)  # Debug log
+                print("Received callback data:", data)
             except Exception as e:
                 print(f"Error parsing JSON: {str(e)}")
                 return jsonify({'error': 'Invalid JSON data'}), 400
@@ -36,7 +41,7 @@ def callback():
                 return jsonify({'error': 'No data provided'}), 400
             
             account_info = data.get('account')
-            print("Account info:", account_info)  # Debug log
+            print("Account info:", account_info)
             
             if not account_info:
                 print("No account info provided")
@@ -46,7 +51,7 @@ def callback():
             email = account_info.get('username')
             name = account_info.get('name', email)
             
-            print(f"Extracted email: {email}, name: {name}")  # Debug log
+            print(f"Extracted email: {email}, name: {name}")
             
             if not email:
                 print("No email provided in account info")
@@ -69,6 +74,10 @@ def callback():
                 login_user(user, remember=True)
                 print(f"User logged in successfully: {email}")
                 
+                # Store user info in session
+                session['user_email'] = email
+                session['user_name'] = name
+                
                 response_data = {
                     'success': True,
                     'redirect': url_for('dashboard.index'),
@@ -83,7 +92,11 @@ def callback():
                 print(traceback.format_exc())
                 return jsonify({'error': f'Database error: {str(e)}'}), 500
             
-        # Handle GET request
+        # Handle GET request - redirect to dashboard if already authenticated
+        if current_user.is_authenticated:
+            print(f"User {current_user.email} is already authenticated, redirecting to dashboard")
+            return redirect(url_for('dashboard.index'))
+            
         print("Received GET request to /callback")
         return redirect(url_for('auth.auth_start'))
 
@@ -96,8 +109,10 @@ def callback():
 @login_required
 def logout():
     try:
+        user_email = current_user.email
         logout_user()
         session.clear()
+        print(f"User {user_email} logged out successfully")
         return redirect(url_for('auth.auth_start'))
     except Exception as e:
         print(f"Error in logout: {str(e)}")

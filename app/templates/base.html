@@ -83,8 +83,15 @@
                         console.error('Backend error:', error);
                     }
                 } else {
-                    showStatus('No auth response, checking for existing session', 'info');
+                    // Check if we're on the login page and already authenticated
                     const accounts = msalInstance.getAllAccounts();
+                    if (accounts.length > 0 && window.location.pathname === '/auth/auth-start') {
+                        showStatus('Already authenticated, redirecting to dashboard...', 'info');
+                        window.location.href = '/dashboard';
+                        return;
+                    }
+                    
+                    showStatus('No auth response, checking for existing session', 'info');
                     console.log('Existing accounts:', accounts);
                     
                     if (accounts.length > 0) {
@@ -135,8 +142,16 @@
             }
         }
 
-        // Initialize when the page loads
-        window.addEventListener('load', handleMsalResponse);
+        // Check authentication state on page load
+        window.addEventListener('load', () => {
+            handleMsalResponse();
+            
+            // If we're on the login page and already have an account, redirect to dashboard
+            const accounts = msalInstance.getAllAccounts();
+            if (accounts.length > 0 && window.location.pathname === '/auth/auth-start') {
+                window.location.href = '/dashboard';
+            }
+        });
     </script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </head>
