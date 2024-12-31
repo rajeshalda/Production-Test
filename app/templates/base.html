@@ -27,24 +27,18 @@
             auth: {
                 clientId: "9ec41cd0-ae8c-4dd5-bc84-a3aeea4bda54",
                 authority: "https://login.microsoftonline.com/a5ae9ae1-3c47-4b70-b92c-ac3a0efffc6a",
-                redirectUri: window.location.origin + "/auth/callback"
+                redirectUri: "https://production-test-ggd3cccmbgg7f6hd.centralindia-01.azurewebsites.net/auth/callback",
+                navigateToLoginRequestUrl: false
             },
             cache: {
                 cacheLocation: "sessionStorage",
-                storeAuthStateInCookie: true
+                storeAuthStateInCookie: false
             }
         };
 
         const loginRequest = {
-            scopes: [
-                "https://graph.microsoft.com/Calendars.Read",
-                "https://graph.microsoft.com/User.Read",
-                "https://graph.microsoft.com/OnlineMeetings.Read",
-                "offline_access",
-                "openid",
-                "profile",
-                "email"
-            ]
+            scopes: ["User.Read", "openid", "profile", "email"],
+            prompt: "select_account"
         };
 
         const msalInstance = new msal.PublicClientApplication(msalConfig);
@@ -54,6 +48,7 @@
             try {
                 showStatus('Checking authentication status...', 'info');
                 const response = await msalInstance.handleRedirectPromise();
+                console.log("Initial response:", response);
                 
                 if (response) {
                     showStatus('Successfully authenticated, processing response...', 'success');
@@ -83,6 +78,7 @@
                         }, 1000);
                     } catch (error) {
                         showStatus('Error sending token to backend: ' + error.message, 'error');
+                        console.error('Backend error details:', error);
                     }
                 } else {
                     const accounts = msalInstance.getAllAccounts();
@@ -90,7 +86,7 @@
                         showStatus('Found existing session...', 'info');
                         try {
                             const silentRequest = {
-                                scopes: loginRequest.scopes,
+                                scopes: ["User.Read"],
                                 account: accounts[0]
                             };
                             const silentResponse = await msalInstance.acquireTokenSilent(silentRequest);
