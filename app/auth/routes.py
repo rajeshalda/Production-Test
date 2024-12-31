@@ -16,71 +16,57 @@ def auth_start():
 def callback():
     try:
         if request.method == 'POST':
-            # Handle popup authentication
             data = request.get_json()
-            if not data or 'token' not in data:
-                return jsonify({'error': 'No token provided'}), 400
+            print("Received callback data:", data)  # Debug log
             
-            access_token = data['token']
-            account_info = data.get('account', {})
+            if not data:
+                return jsonify({'error': 'No data provided'}), 400
+            
+            account_info = data.get('account')
+            if not account_info:
+                return jsonify({'error': 'No account info provided'}), 400
             
             # Get user info from account
-            email = account_info.get('username', '')
+            email = account_info.get('username')
             name = account_info.get('name', email)
             
-        else:
-            # Handle redirect authentication
-            auth_code = request.args.get('code')
-            if not auth_code:
-                return redirect(url_for('auth.auth_start'))
-
-            msal_app = msal.PublicClientApplication(
-                client_id=current_app.config['MICROSOFT_CLIENT_ID'],
-                authority=current_app.config['MICROSOFT_AUTHORITY']
-            )
-
-            result = msal_app.acquire_token_by_authorization_code(
-                code=auth_code,
-                scopes=current_app.config['SCOPE'],
-                redirect_uri=url_for('auth.callback', _external=True)
-            )
-
-            if "error" in result:
-                print(f"Error in token acquisition: {result.get('error_description', 'Unknown error')}")
-                return redirect(url_for('auth.auth_start'))
-
-            if "access_token" not in result:
-                return redirect(url_for('auth.auth_start'))
-
-            access_token = result['access_token']
-            id_claims = result.get('id_token_claims', {})
-            email = id_claims.get('preferred_username', '')
-            name = id_claims.get('name', email)
-
-        # Store token in session
-        session['access_token'] = access_token
-        
-        # Create or update user
-        user = User.query.filter_by(email=email).first()
-        if not user:
-            user = User(email=email, name=name)
-            db.session.add(user)
-            db.session.commit()
-        elif user.name != name:
-            user.name = name
-            db.session.commit()
-        
-        login_user(user, remember=True)
-        
-        if request.method == 'POST':
-            return jsonify({'success': True, 'redirect': url_for('dashboard.index')})
-        return redirect(url_for('dashboard.index'))
+            if not email:
+                return jsonify({'error': 'No email provided'}), 400
+            
+            print(f"Processing user: {email}, {name}")  # Debug log
+            
+            try:
+                # Create or update user
+                user = User.query.filter_by(email=email).first()
+                if not user:
+                    print(f"Creating new user: {email}")  # Debug log
+                    user = User(email=email, name=name)
+                    db.session.add(user)
+                elif user.name != name:
+                    print(f"Updating user name: {name}")  # Debug log
+                    user.name = name
+                
+                db.session.commit()
+                login_user(user, remember=True)
+                
+                print(f"User logged in successfully: {email}")  # Debug log
+                return jsonify({
+                    'success': True,
+                    'redirect': url_for('dashboard.index'),
+                    'message': 'Successfully logged in'
+                })
+            
+            except Exception as e:
+                db.session.rollback()
+                print(f"Database error: {str(e)}")
+                return jsonify({'error': f'Database error: {str(e)}'}), 500
+            
+        # Handle GET request
+        return redirect(url_for('auth.auth_start'))
 
     except Exception as e:
         print(f"Error in callback: {str(e)}")
-        if request.method == 'POST':
-            return jsonify({'error': str(e)}), 500
-        return redirect(url_for('auth.auth_start'))
+        return jsonify({'error': str(e)}), 500
 
 @bp.route('/logout')
 @login_required

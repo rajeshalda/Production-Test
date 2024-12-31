@@ -1,51 +1,38 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
-from flask_session import Session
 from config import Config
 
-# Initialize extensions
 db = SQLAlchemy()
 login_manager = LoginManager()
-session = Session()
+login_manager.login_view = 'auth.auth_start'
 
-def create_app():
+def create_app(config_class=Config):
     app = Flask(__name__)
-    app.config.from_object(Config)
+    app.config.from_object(config_class)
 
-    # Initialize Flask extensions
     db.init_app(app)
     login_manager.init_app(app)
-    session.init_app(app)
 
-    # Set up login manager
-    login_manager.login_view = 'auth.auth_start'
-    
+    from app.auth import bp as auth_bp
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+
+    from app.dashboard import bp as dashboard_bp
+    app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
+
+    from app.api import bp as api_bp
+    app.register_blueprint(api_bp, url_prefix='/api')
+
+    from . import cli
+    cli.init_app(app)
+
+    @app.route('/')
+    def index():
+        return redirect(url_for('auth.auth_start'))
+
     with app.app_context():
-        # Import models
-        from . import models
-        
-        # Import routes
-        from .auth import bp as auth_bp
-        from .dashboard import bp as dashboard_bp
-        from .api import bp as api_bp
-        
-        # Register blueprints
-        app.register_blueprint(auth_bp)
-        app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
-        app.register_blueprint(api_bp, url_prefix='/api')
-        
-        # Create database tables
         db.create_all()
-        
-        @app.route('/')
-        def index():
-            from flask import redirect, url_for
-            return redirect(url_for('auth.auth_start'))
-        
-        @app.after_request
-        def after_request(response):
-            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-            return response
-        
-        return app 
+
+    return app
+
+from app import models 

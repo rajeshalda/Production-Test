@@ -26,8 +26,7 @@
             auth: {
                 clientId: "9ec41cd0-ae8c-4dd5-bc84-a3aeea4bda54",
                 authority: "https://login.microsoftonline.com/a5ae9ae1-3c47-4b70-b92c-ac3a0efffc6a",
-                redirectUri: "https://production-test-ggd3cccmbgg7f6hd.centralindia-01.azurewebsites.net/auth/callback",
-                postLogoutRedirectUri: "https://production-test-ggd3cccmbgg7f6hd.centralindia-01.azurewebsites.net"
+                redirectUri: "https://production-test-ggd3cccmbgg7f6hd.centralindia-01.azurewebsites.net/auth/callback"
             },
             cache: {
                 cacheLocation: "sessionStorage",
@@ -68,14 +67,16 @@
                             })
                         });
                         
+                        const data = await backendResponse.json();
+                        console.log('Backend response:', data);
+                        
                         if (!backendResponse.ok) {
-                            throw new Error(`Backend returned ${backendResponse.status}`);
+                            throw new Error(data.error || `Backend returned ${backendResponse.status}`);
                         }
                         
-                        const data = await backendResponse.json();
                         showStatus('Login successful! Redirecting...', 'success');
                         setTimeout(() => {
-                            window.location.href = '/dashboard';
+                            window.location.href = data.redirect || '/dashboard';
                         }, 1000);
                     } catch (error) {
                         showStatus('Backend error: ' + error.message, 'error');
@@ -104,13 +105,21 @@
                             if (error instanceof msal.InteractionRequiredAuthError) {
                                 showStatus('Session expired, please sign in again', 'info');
                                 sessionStorage.clear();
+                            } else {
+                                showStatus('Error refreshing token: ' + error.message, 'error');
+                                console.error('Token refresh error:', error);
                             }
                         }
+                    } else {
+                        showStatus('No existing session found', 'info');
                     }
                 }
             } catch (error) {
                 showStatus('Auth error: ' + error.message, 'error');
-                console.error('Auth error:', error);
+                console.error('Auth error details:', error);
+                if (error.errorCode === 'invalid_request') {
+                    showStatus('Please clear your browser cache and try again', 'info');
+                }
             }
         }
 
@@ -118,10 +127,11 @@
         async function signIn() {
             try {
                 showStatus('Starting login...', 'info');
+                console.log('Starting login process...');
                 await msalInstance.loginRedirect(loginRequest);
             } catch (error) {
                 showStatus('Login error: ' + error.message, 'error');
-                console.error('Login error:', error);
+                console.error('Login error details:', error);
             }
         }
 
