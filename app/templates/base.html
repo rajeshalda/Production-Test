@@ -12,12 +12,15 @@
                 clientId: "9ec41cd0-ae8c-4dd5-bc84-a3aeea4bda54",
                 authority: "https://login.microsoftonline.com/a5ae9ae1-3c47-4b70-b92c-ac3a0efffc6a",
                 redirectUri: window.location.origin + "/auth/callback",
-                navigateToLoginRequestUrl: true,
                 postLogoutRedirectUri: window.location.origin
             },
             cache: {
                 cacheLocation: "localStorage",
-                storeAuthStateInCookie: true
+                storeAuthStateInCookie: false
+            },
+            system: {
+                allowNativeBroker: true,
+                tokenRenewalOffsetSeconds: 300
             }
         };
 

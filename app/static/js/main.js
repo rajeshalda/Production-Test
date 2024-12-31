@@ -9,9 +9,7 @@ async function signIn() {
             "openid",
             "profile",
             "email"
-        ],
-        prompt: "select_account",
-        redirectStartPage: window.location.href
+        ]
     };
 
     try {
@@ -22,8 +20,7 @@ async function signIn() {
             try {
                 const silentRequest = {
                     scopes: loginRequest.scopes,
-                    account: accounts[0],
-                    forceRefresh: false
+                    account: accounts[0]
                 };
                 const response = await msalInstance.acquireTokenSilent(silentRequest);
                 if (response) {
@@ -38,13 +35,15 @@ async function signIn() {
             }
         }
 
+        // Clear any existing state before proceeding
+        sessionStorage.clear();
+        localStorage.clear();
+
         // Proceed with login
         await msalInstance.loginRedirect(loginRequest);
     } catch (error) {
         console.error('Error during sign in:', error);
         if (error.errorCode === "interaction_in_progress") {
-            sessionStorage.clear();
-            localStorage.clear();
             window.location.reload();
         }
     }
