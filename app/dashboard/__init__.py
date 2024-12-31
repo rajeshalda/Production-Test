@@ -1,5 +1,5 @@
 from flask import Blueprint
 
-bp = Blueprint('dashboard', __name__, url_prefix='/dashboard')
+bp = Blueprint('dashboard', __name__)
 
 from . import routes 

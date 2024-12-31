@@ -1,42 +1,14 @@
-from flask import Blueprint, render_template
+from flask import render_template, redirect, url_for
 from flask_login import login_required, current_user
-
-bp = Blueprint('dashboard', __name__, url_prefix='/dashboard')
+from . import bp
 
 @bp.route('/')
+@bp.route('/index')
 @login_required
 def index():
-    # Mock data for demonstration
-    unmatched_meetings = [{
-        'id': 1,
-        'title': 'Technical Discussion',
-        'description': 'Architecture review meeting',
-        'duration': '1.5 hours',
-        'datetime': '2024-12-24 10:00 AM'
-    }]
-    
-    matched_meetings = [{
-        'id': 2,
-        'title': 'Sprint Planning',
-        'description': 'Weekly sprint planning session',
-        'duration': '1 hour',
-        'task': 'Sprint Planning',
-        'project': 'Project Alpha',
-        'datetime': '2024-12-24 2:00 PM'
-    }]
-    
-    return render_template('dashboard/index.html',
-                         unmatched_meetings=unmatched_meetings,
-                         matched_meetings=matched_meetings)
-
-@bp.route('/meetings')
-@login_required
-def meetings():
-    """Meetings list page."""
-    return render_template('dashboard/meetings.html')
-
-@bp.route('/tasks')
-@login_required
-def tasks():
-    """Tasks list page."""
-    return render_template('dashboard/tasks.html') 
+    """Dashboard home page"""
+    try:
+        return render_template('dashboard/index.html', user=current_user)
+    except Exception as e:
+        print(f"Error in dashboard index: {str(e)}")
+        return redirect(url_for('auth.auth_start')) 

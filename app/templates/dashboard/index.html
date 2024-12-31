@@ -1,140 +1,47 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-50">
-    <!-- Header -->
-    <header class="bg-white shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
-            <div class="flex items-center">
-                <h1 class="text-lg font-semibold text-gray-900 flex items-center">
-                    <svg class="w-5 h-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 2a6 6 0 110 12 6 6 0 010-12zm1 2H9v5h4v-2h-2V6z"/>
-                    </svg>
-                    Meeting Time Tracker
-                    <span class="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Beta</span>
-                </h1>
-            </div>
-            <div class="flex items-center space-x-4">
-                <button class="p-1 rounded-full hover:bg-gray-100">
-                    <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-                    </svg>
-                </button>
-                <button class="p-1 rounded-full hover:bg-gray-100">
-                    <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                    </svg>
-                </button>
+<div class="min-h-screen bg-gray-100">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <h1 class="text-xl font-bold">Meeting Time Tracker</h1>
+                    </div>
+                </div>
                 <div class="flex items-center">
-                    <span class="text-sm text-gray-700">{{ current_user.name }}</span>
-                    <a href="{{ url_for('auth.logout') }}" class="ml-2">
-                        <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-                        </svg>
-                    </a>
+                    <div class="flex-shrink-0">
+                        <span class="text-gray-700 mr-4">{{ user.name }}</span>
+                        <a href="{{ url_for('auth.logout') }}" 
+                           class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700">
+                            Sign Out
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
-    </header>
+    </nav>
 
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <!-- Sync Button and Status -->
-        <div class="mb-8">
-            <button class="bg-gray-900 text-white px-4 py-2 rounded-md flex items-center space-x-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                </svg>
-                <span>Start Sync</span>
-            </button>
-            <div class="mt-4 flex space-x-4">
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                    Connected to Microsoft
-                </span>
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                    Connected to Intervals
-                </span>
+    <div class="py-10">
+        <header>
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <h2 class="text-2xl font-bold leading-tight text-gray-900">
+                    Welcome, {{ user.name }}!
+                </h2>
             </div>
-        </div>
-
-        <!-- Meetings Sections -->
-        <div class="space-y-8">
-            <!-- Unmatched Meetings -->
-            <section>
-                <h2 class="text-lg font-medium text-gray-900 flex items-center mb-4">
-                    <svg class="w-5 h-5 mr-2 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 2a6 6 0 110 12 6 6 0 010-12zm1 2H9v5h4v-2h-2V6z"/>
-                    </svg>
-                    Unmatched Meetings
-                    <span class="ml-2 text-sm text-gray-500">1</span>
-                </h2>
-                <div class="bg-white shadow rounded-lg p-6">
-                    <div class="border-b pb-4 mb-4">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <h3 class="text-lg font-medium">Technical Discussion</h3>
-                                <p class="text-sm text-gray-500">Architecture review meeting</p>
-                                <div class="mt-2 flex items-center text-sm text-gray-500">
-                                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                        <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 2a6 6 0 110 12 6 6 0 010-12zm1 2H9v5h4v-2h-2V6z"/>
-                                    </svg>
-                                    1.5 hours
-                                    <span class="mx-2">•</span>
-                                    2024-12-24 10:00 AM
-                                </div>
-                            </div>
-                            <button class="bg-white border border-gray-300 rounded-md px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                                Match Task
-                            </button>
-                        </div>
+        </header>
+        <main>
+            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                <div class="px-4 py-8 sm:px-0">
+                    <div class="border-4 border-dashed border-gray-200 rounded-lg h-96 p-4">
+                        <p class="text-gray-500">Your dashboard content will appear here.</p>
                     </div>
                 </div>
-            </section>
-
-            <!-- Matched Meetings -->
-            <section>
-                <h2 class="text-lg font-medium text-gray-900 flex items-center mb-4">
-                    <svg class="w-5 h-5 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                    </svg>
-                    Matched Meetings
-                    <span class="ml-2 text-sm text-gray-500">1</span>
-                </h2>
-                <div class="bg-white shadow rounded-lg p-6">
-                    <div class="border-b pb-4">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <h3 class="text-lg font-medium">Sprint Planning</h3>
-                                <p class="text-sm text-gray-500">Weekly sprint planning session</p>
-                                <div class="mt-2 flex items-center text-sm text-gray-500">
-                                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                        <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 2a6 6 0 110 12 6 6 0 010-12zm1 2H9v5h4v-2h-2V6z"/>
-                                    </svg>
-                                    1 hour
-                                    <span class="mx-2">•</span>
-                                    Task: Sprint Planning
-                                    <span class="mx-2">•</span>
-                                    Project Alpha
-                                    <span class="mx-2">•</span>
-                                    2024-12-24 2:00 PM
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </div>
-
-        <!-- Post All Button -->
-        <div class="mt-8">
-            <button class="w-full bg-gray-900 text-white px-4 py-3 rounded-md flex items-center justify-center space-x-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
-                </svg>
-                <span>Post All Matched Meetings</span>
-            </button>
-        </div>
-    </main>
+            </div>
+        </main>
+    </div>
 </div>
 {% endblock %} 
