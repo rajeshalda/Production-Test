@@ -44,6 +44,11 @@
         // Handle the redirect promise when the page loads
         async function handleMsalResponse() {
             try {
+                // Only handle authentication on login-related pages
+                if (!window.location.pathname.startsWith('/auth/')) {
+                    return;
+                }
+
                 showStatus('Starting authentication check...', 'info');
                 console.log('Starting authentication check...');
                 
@@ -83,42 +88,14 @@
                         console.error('Backend error:', error);
                     }
                 } else {
-                    // Check if we're on the login page and already authenticated
-                    const accounts = msalInstance.getAllAccounts();
-                    if (accounts.length > 0 && window.location.pathname === '/auth/auth-start') {
-                        showStatus('Already authenticated, redirecting to dashboard...', 'info');
-                        window.location.href = '/dashboard';
-                        return;
-                    }
-                    
-                    showStatus('No auth response, checking for existing session', 'info');
-                    console.log('Existing accounts:', accounts);
-                    
-                    if (accounts.length > 0) {
-                        try {
-                            showStatus('Found existing account, refreshing token...', 'info');
-                            const silentRequest = {
-                                scopes: loginRequest.scopes,
-                                account: accounts[0]
-                            };
-                            const silentResponse = await msalInstance.acquireTokenSilent(silentRequest);
-                            if (silentResponse) {
-                                showStatus('Token refreshed! Redirecting...', 'success');
-                                setTimeout(() => {
-                                    window.location.href = '/dashboard';
-                                }, 1000);
-                            }
-                        } catch (error) {
-                            if (error instanceof msal.InteractionRequiredAuthError) {
-                                showStatus('Session expired, please sign in again', 'info');
-                                sessionStorage.clear();
-                            } else {
-                                showStatus('Error refreshing token: ' + error.message, 'error');
-                                console.error('Token refresh error:', error);
-                            }
+                    // Only check and redirect on login pages
+                    if (window.location.pathname === '/auth/auth-start') {
+                        const accounts = msalInstance.getAllAccounts();
+                        if (accounts.length > 0) {
+                            showStatus('Already authenticated, redirecting to dashboard...', 'info');
+                            window.location.href = '/dashboard';
+                            return;
                         }
-                    } else {
-                        showStatus('No existing session found', 'info');
                     }
                 }
             } catch (error) {
@@ -142,14 +119,10 @@
             }
         }
 
-        // Check authentication state on page load
+        // Initialize authentication handling only on auth pages
         window.addEventListener('load', () => {
-            handleMsalResponse();
-            
-            // If we're on the login page and already have an account, redirect to dashboard
-            const accounts = msalInstance.getAllAccounts();
-            if (accounts.length > 0 && window.location.pathname === '/auth/auth-start') {
-                window.location.href = '/dashboard';
+            if (window.location.pathname.startsWith('/auth/')) {
+                handleMsalResponse();
             }
         });
     </script>
