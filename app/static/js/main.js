@@ -1,83 +1,22 @@
 // MSAL Authentication
 async function signIn() {
+    const loginRequest = {
+        scopes: [
+            "https://graph.microsoft.com/Calendars.Read",
+            "https://graph.microsoft.com/User.Read",
+            "https://graph.microsoft.com/OnlineMeetings.Read",
+            "offline_access",
+            "openid",
+            "profile",
+            "email"
+        ]
+    };
+
     try {
-        // Define login request
-        const loginRequest = {
-            scopes: [
-                "https://graph.microsoft.com/Calendars.Read",
-                "https://graph.microsoft.com/User.Read",
-                "https://graph.microsoft.com/OnlineMeetings.Read",
-                "offline_access",
-                "openid",
-                "profile",
-                "email"
-            ]
-        };
-
-        // Check if there's a cached account
-        const accounts = msalInstance.getAllAccounts();
-        if (accounts.length > 0) {
-            // Use the first account if available
-            const silentRequest = {
-                scopes: loginRequest.scopes,
-                account: accounts[0],
-                forceRefresh: false
-            };
-
-            try {
-                const response = await msalInstance.acquireTokenSilent(silentRequest);
-                await handleTokenResponse(response);
-                return;
-            } catch (error) {
-                if (error instanceof msal.InteractionRequiredAuthError) {
-                    // Fall back to interaction when silent call fails
-                    await performInteractiveSignIn(loginRequest);
-                }
-            }
-        } else {
-            // No accounts, perform interactive sign in
-            await performInteractiveSignIn(loginRequest);
-        }
+        // Use loginRedirect instead of popup
+        await msalInstance.loginRedirect(loginRequest);
     } catch (error) {
         console.error('Error during sign in:', error);
-    }
-}
-
-async function performInteractiveSignIn(loginRequest) {
-    try {
-        const response = await msalInstance.loginPopup(loginRequest);
-        await handleTokenResponse(response);
-    } catch (error) {
-        console.error('Error during interactive sign in:', error);
-    }
-}
-
-async function handleTokenResponse(response) {
-    try {
-        // Send token to backend
-        const backendResponse = await fetch('/auth/callback', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                token: response.accessToken,
-                account: response.account
-            })
-        });
-
-        if (backendResponse.ok) {
-            const data = await backendResponse.json();
-            if (data.redirect) {
-                window.location.href = data.redirect;
-            } else {
-                window.location.href = '/dashboard';
-            }
-        } else {
-            throw new Error('Backend authentication failed');
-        }
-    } catch (error) {
-        console.error('Error handling token response:', error);
     }
 }
 
@@ -85,16 +24,10 @@ async function signOut() {
     try {
         const account = msalInstance.getAllAccounts()[0];
         if (account) {
-            await msalInstance.logoutPopup({
+            await msalInstance.logoutRedirect({
                 account: account,
                 postLogoutRedirectUri: window.location.origin
             });
-
-            // Clear session storage
-            sessionStorage.clear();
-
-            // Redirect to logout endpoint
-            window.location.href = '/auth/logout';
         }
     } catch (error) {
         console.error('Error during sign out:', error);
