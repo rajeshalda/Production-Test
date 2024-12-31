@@ -108,13 +108,30 @@ def callback():
 @bp.route('/logout')
 @login_required
 def logout():
+    """Handle user logout"""
     try:
-        user_email = current_user.email
+        # Get user info before logout for logging
+        user_email = current_user.email if current_user else 'Unknown'
+        
+        # Clear Flask-Login session
         logout_user()
+        
+        # Clear Flask session
         session.clear()
+        
         print(f"User {user_email} logged out successfully")
-        return redirect(url_for('auth.auth_start'))
+        
+        # Return JSON response for AJAX call
+        return jsonify({
+            'success': True,
+            'redirect': url_for('auth.auth_start'),
+            'message': 'Successfully logged out'
+        })
+        
     except Exception as e:
         print(f"Error in logout: {str(e)}")
         print(traceback.format_exc())
-        return jsonify({'error': 'Logout failed'}), 500 
+        return jsonify({
+            'error': 'Logout failed',
+            'redirect': url_for('auth.auth_start')
+        }), 500 
