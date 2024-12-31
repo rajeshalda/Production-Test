@@ -7,13 +7,27 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://alcdn.msauth.net/browser/2.30.0/js/msal-browser.min.js"></script>
     <script>
+        // Function to show status if available
+        function showStatus(message, type = 'info') {
+            const statusBox = document.getElementById('statusBox');
+            const statusMessage = document.getElementById('statusMessage');
+            if (statusBox && statusMessage) {
+                statusBox.className = 'p-4 my-4 rounded-lg ' + 
+                    (type === 'error' ? 'bg-red-100 text-red-700' : 
+                     type === 'success' ? 'bg-green-100 text-green-700' : 
+                     'bg-blue-100 text-blue-700');
+                statusMessage.textContent = message;
+                statusBox.classList.remove('hidden');
+            } else {
+                console.log('Status:', message, '(Type:', type, ')');
+            }
+        }
+
         const msalConfig = {
             auth: {
                 clientId: "9ec41cd0-ae8c-4dd5-bc84-a3aeea4bda54",
                 authority: "https://login.microsoftonline.com/a5ae9ae1-3c47-4b70-b92c-ac3a0efffc6a",
-                redirectUri: window.location.origin + "/auth/callback",
-                postLogoutRedirectUri: window.location.origin,
-                navigateToLoginRequestUrl: false
+                redirectUri: window.location.origin + "/auth/callback"
             },
             cache: {
                 cacheLocation: "sessionStorage",
@@ -38,10 +52,15 @@
         // Handle the redirect promise when the page loads
         async function handleMsalResponse() {
             try {
+                showStatus('Checking authentication status...', 'info');
                 const response = await msalInstance.handleRedirectPromise();
+                
                 if (response) {
-                    console.log("Got auth response:", response);
+                    showStatus('Successfully authenticated, processing response...', 'success');
+                    console.log("Auth Response:", response);
+                    
                     try {
+                        showStatus('Sending token to backend...', 'info');
                         const backendResponse = await fetch('/auth/callback', {
                             method: 'POST',
                             headers: {
@@ -58,16 +77,17 @@
                         }
                         
                         const data = await backendResponse.json();
-                        console.log("Backend response:", data);
-                        window.location.href = data.redirect || '/dashboard';
+                        showStatus('Successfully logged in! Redirecting...', 'success');
+                        setTimeout(() => {
+                            window.location.href = data.redirect || '/dashboard';
+                        }, 1000);
                     } catch (error) {
-                        console.error("Error sending token to backend:", error);
+                        showStatus('Error sending token to backend: ' + error.message, 'error');
                     }
                 } else {
-                    // No response means no redirect was handled
-                    // Check if we have an active account
                     const accounts = msalInstance.getAllAccounts();
                     if (accounts.length > 0) {
+                        showStatus('Found existing session...', 'info');
                         try {
                             const silentRequest = {
                                 scopes: loginRequest.scopes,
@@ -75,17 +95,21 @@
                             };
                             const silentResponse = await msalInstance.acquireTokenSilent(silentRequest);
                             if (silentResponse && window.location.pathname === '/') {
-                                window.location.href = '/dashboard';
+                                showStatus('Session restored! Redirecting...', 'success');
+                                setTimeout(() => {
+                                    window.location.href = '/dashboard';
+                                }, 1000);
                             }
                         } catch (error) {
                             if (error instanceof msal.InteractionRequiredAuthError) {
-                                console.log('Silent token acquisition failed, user needs to sign in');
+                                showStatus('Session expired, please sign in again', 'info');
                             }
                         }
                     }
                 }
             } catch (error) {
-                console.error('Error handling MSAL response:', error);
+                showStatus('Authentication error: ' + error.message, 'error');
+                console.error('Error details:', error);
             }
         }
 
