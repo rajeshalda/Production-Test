@@ -48,6 +48,12 @@
 <script>
 async function handleSignOut() {
     try {
+        // Initialize MSAL instance
+        const msalInstance = new msal.PublicClientApplication(msalConfig);
+        
+        // Get all accounts
+        const accounts = msalInstance.getAllAccounts();
+        
         // First, sign out from our backend
         const response = await fetch('{{ url_for("auth.logout") }}', {
             method: 'GET',
@@ -58,32 +64,39 @@ async function handleSignOut() {
         
         const data = await response.json();
         
-        if (!response.ok) {
-            throw new Error(data.error || 'Failed to logout');
-        }
+        // Clear browser session storage
+        sessionStorage.clear();
+        localStorage.clear();
         
-        // Then sign out from MSAL
-        const msalInstance = new msal.PublicClientApplication(msalConfig);
-        const accounts = msalInstance.getAllAccounts();
+        // Clear all cookies
+        document.cookie.split(";").forEach(function(c) { 
+            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+        });
         
         if (accounts.length > 0) {
-            // Clear MSAL cache
-            accounts.forEach(account => {
-                msalInstance.logoutRedirect({
-                    account: account,
-                    postLogoutRedirectUri: window.location.origin + data.redirect
-                });
+            // Sign out from MSAL with full URL for redirect
+            const redirectUri = window.location.origin + '{{ url_for("auth.auth_start") }}';
+            await msalInstance.logoutRedirect({
+                postLogoutRedirectUri: redirectUri
             });
         } else {
-            // If no MSAL accounts, just redirect
-            window.location.href = data.redirect;
+            // If no MSAL accounts, force redirect to login
+            window.location.href = '{{ url_for("auth.auth_start") }}';
         }
         
     } catch (error) {
         console.error('Logout error:', error);
-        // Fallback to simple redirect on error
+        // Force redirect to login on error
         window.location.href = '{{ url_for("auth.auth_start") }}';
     }
 }
+
+// Prevent back button from returning to dashboard after logout
+window.addEventListener('pageshow', function(event) {
+    if (event.persisted) {
+        // Page was loaded from cache (back button)
+        window.location.reload();
+    }
+});
 </script>
 {% endblock %} 
