@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container text-center mt-5">
+    <h2>Authentication Successful</h2>
+    <p>You can close this window now.</p>
+</div>
+
+<script>
+    // Close this window and redirect opener to dashboard
+    window.onload = function() {
+        if (window.opener) {
+            window.opener.location.href = "{{ url_for('dashboard.index') }}";
+            setTimeout(function() {
+                window.close();
+            }, 1000);
+        } else {
+            window.location.href = "{{ url_for('dashboard.index') }}";
+        }
+    };
+</script>
+{% endblock %} 

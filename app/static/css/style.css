@@ -1,0 +1,113 @@
+/* Custom styles for Teams Meeting Time Tracker */
+
+/* Body styles */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Main content */
+main {
+    flex: 1;
+}
+
+/* Card styles */
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+/* Button styles */
+.btn-microsoft {
+    background-color: #2f2f2f;
+    border-color: #2f2f2f;
+    color: white;
+}
+
+.btn-microsoft:hover {
+    background-color: #1f1f1f;
+    border-color: #1f1f1f;
+    color: white;
+}
+
+/* Table styles */
+.table-meetings th {
+    background-color: #f8f9fa;
+}
+
+.table-meetings td {
+    vertical-align: middle;
+}
+
+/* Statistics cards */
+.stat-card {
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    background-color: white;
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.stat-card .stat-title {
+    color: #6c757d;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-card .stat-value {
+    font-size: 2rem;
+    font-weight: 600;
+    margin: 0.5rem 0;
+}
+
+/* Loading spinner */
+.loading-spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 0.2em solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spinner-border .75s linear infinite;
+}
+
+/* Attendance percentage badges */
+.attendance-high {
+    background-color: #28a745;
+    color: white;
+}
+
+.attendance-medium {
+    background-color: #ffc107;
+    color: black;
+}
+
+.attendance-low {
+    background-color: #dc3545;
+    color: white;
+}
+
+/* Footer */
+.footer {
+    background-color: #f8f9fa;
+    padding: 1rem 0;
+    margin-top: auto;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .stat-card {
+        margin-bottom: 1rem;
+    }
+    
+    .table-responsive {
+        margin-bottom: 1rem;
+    }
+} 

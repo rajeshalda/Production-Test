@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Intervals Login - Teams Meeting Time Tracker{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">Intervals Authentication</h4>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <h5>Connect Your Intervals Account</h5>
+                    <p>Please enter your Intervals API token to continue.</p>
+                </div>
+                
+                <form method="POST" action="{{ url_for('auth.intervals_login') }}">
+                    <div class="mb-3">
+                        <label for="token" class="form-label">API Token</label>
+                        <input type="password" class="form-control" id="token" name="token" required>
+                        <div class="form-text">
+                            You can find your API token in your Intervals account settings.
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            Connect to Intervals
+                        </button>
+                    </div>
+                </form>
+                
+                <hr>
+                
+                <div class="text-center">
+                    <p class="text-muted">
+                        Don't have an API token? 
+                        <a href="https://www.myintervals.com/api/" target="_blank">Learn how to get one</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
