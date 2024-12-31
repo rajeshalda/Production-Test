@@ -13,9 +13,6 @@ async function signIn() {
     };
 
     try {
-        // Ensure MSAL is initialized
-        await msalInstance.initialize();
-        
         // Check for existing session
         const accounts = msalInstance.getAllAccounts();
         if (accounts.length > 0) {
@@ -40,7 +37,6 @@ async function signIn() {
 
         // Clear any existing state before proceeding
         sessionStorage.clear();
-        localStorage.clear();
 
         // Proceed with login
         await msalInstance.loginRedirect(loginRequest);

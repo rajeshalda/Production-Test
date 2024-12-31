@@ -12,25 +12,35 @@
                 clientId: "9ec41cd0-ae8c-4dd5-bc84-a3aeea4bda54",
                 authority: "https://login.microsoftonline.com/a5ae9ae1-3c47-4b70-b92c-ac3a0efffc6a",
                 redirectUri: window.location.origin + "/auth/callback",
-                postLogoutRedirectUri: window.location.origin
+                postLogoutRedirectUri: window.location.origin,
+                navigateToLoginRequestUrl: false
             },
             cache: {
-                cacheLocation: "localStorage",
-                storeAuthStateInCookie: false
+                cacheLocation: "sessionStorage",
+                storeAuthStateInCookie: true
             }
+        };
+
+        const loginRequest = {
+            scopes: [
+                "https://graph.microsoft.com/Calendars.Read",
+                "https://graph.microsoft.com/User.Read",
+                "https://graph.microsoft.com/OnlineMeetings.Read",
+                "offline_access",
+                "openid",
+                "profile",
+                "email"
+            ]
         };
 
         const msalInstance = new msal.PublicClientApplication(msalConfig);
 
-        // Initialize MSAL before use
-        async function initializeMsal() {
+        // Handle the redirect promise when the page loads
+        async function handleMsalResponse() {
             try {
-                await msalInstance.initialize();
-                // Handle the redirect promise after initialization
                 const response = await msalInstance.handleRedirectPromise();
                 if (response) {
                     console.log("Got auth response:", response);
-                    // If we have a response, we've just been redirected back from Microsoft
                     try {
                         const backendResponse = await fetch('/auth/callback', {
                             method: 'POST',
@@ -42,24 +52,45 @@
                                 account: response.account
                             })
                         });
+                        
+                        if (!backendResponse.ok) {
+                            throw new Error('Backend response was not ok');
+                        }
+                        
                         const data = await backendResponse.json();
                         console.log("Backend response:", data);
-                        if (data.redirect) {
-                            window.location.href = data.redirect;
-                        } else {
-                            window.location.href = '/dashboard';
-                        }
+                        window.location.href = data.redirect || '/dashboard';
                     } catch (error) {
                         console.error("Error sending token to backend:", error);
                     }
+                } else {
+                    // No response means no redirect was handled
+                    // Check if we have an active account
+                    const accounts = msalInstance.getAllAccounts();
+                    if (accounts.length > 0) {
+                        try {
+                            const silentRequest = {
+                                scopes: loginRequest.scopes,
+                                account: accounts[0]
+                            };
+                            const silentResponse = await msalInstance.acquireTokenSilent(silentRequest);
+                            if (silentResponse && window.location.pathname === '/') {
+                                window.location.href = '/dashboard';
+                            }
+                        } catch (error) {
+                            if (error instanceof msal.InteractionRequiredAuthError) {
+                                console.log('Silent token acquisition failed, user needs to sign in');
+                            }
+                        }
+                    }
                 }
             } catch (error) {
-                console.error('Error during MSAL initialization:', error);
+                console.error('Error handling MSAL response:', error);
             }
         }
 
-        // Initialize MSAL when the page loads
-        window.addEventListener('load', initializeMsal);
+        // Initialize when the page loads
+        window.addEventListener('load', handleMsalResponse);
     </script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </head>
