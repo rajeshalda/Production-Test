@@ -9,18 +9,24 @@ async function signIn() {
             "openid",
             "profile",
             "email"
-        ]
+        ],
+        prompt: "select_account"
     };
 
     try {
-        // First, check if there's an existing interaction
-        await msalInstance.handleRedirectPromise();
-        
-        // Then proceed with login
+        // Clear any existing sessions
+        const accounts = msalInstance.getAllAccounts();
+        if (accounts.length > 0) {
+            for (const account of accounts) {
+                await msalInstance.logoutRedirect({ account });
+            }
+            return;
+        }
+
+        // Proceed with login
         await msalInstance.loginRedirect(loginRequest);
     } catch (error) {
         console.error('Error during sign in:', error);
-        // If there's an interaction in progress error, try to clear it
         if (error.errorCode === "interaction_in_progress") {
             sessionStorage.clear();
             window.location.reload();
