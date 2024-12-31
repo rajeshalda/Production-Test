@@ -11,14 +11,39 @@
             auth: {
                 clientId: "9ec41cd0-ae8c-4dd5-bc84-a3aeea4bda54",
                 authority: "https://login.microsoftonline.com/a5ae9ae1-3c47-4b70-b92c-ac3a0efffc6a",
-                redirectUri: window.location.origin + "/auth/callback"
+                redirectUri: window.location.origin + "/auth/callback",
+                navigateToLoginRequestUrl: true
             },
             cache: {
                 cacheLocation: "sessionStorage",
                 storeAuthStateInCookie: false
+            },
+            system: {
+                loggerOptions: {
+                    loggerCallback: (level, message, containsPii) => {
+                        if (containsPii) return;
+                        console.log(message);
+                    },
+                    logLevel: "Info"
+                }
             }
         };
+
         const msalInstance = new msal.PublicClientApplication(msalConfig);
+        
+        // Handle redirect promise
+        msalInstance.handleRedirectPromise().then(handleResponse).catch(error => {
+            console.error(error);
+        });
+
+        function handleResponse(response) {
+            if (response !== null) {
+                // Get account info and store it
+                const account = response.account;
+                sessionStorage.setItem('msalAccount', JSON.stringify(account));
+                window.location.href = '/dashboard';
+            }
+        }
     </script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </head>

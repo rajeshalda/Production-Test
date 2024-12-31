@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, redirect, url_for, session, request, current_app, jsonify
-from flask_login import login_user, logout_user, login_required
+from flask_login import login_user, logout_user, login_required, current_user
 import msal
 from app.models import User
 from app import db
@@ -8,6 +8,8 @@ from . import bp
 @bp.route('/auth-start')
 def auth_start():
     """Show the login page"""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard.index'))
     return render_template('auth/login.html')
 
 @bp.route('/callback', methods=['GET', 'POST'])
@@ -64,8 +66,11 @@ def callback():
             user = User(email=email, name=name)
             db.session.add(user)
             db.session.commit()
+        elif user.name != name:
+            user.name = name
+            db.session.commit()
         
-        login_user(user)
+        login_user(user, remember=True)
         
         if request.method == 'POST':
             return jsonify({'success': True, 'redirect': url_for('dashboard.index')})

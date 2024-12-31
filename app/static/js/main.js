@@ -6,33 +6,54 @@ async function signIn() {
             scopes: [
                 "https://graph.microsoft.com/Calendars.Read",
                 "https://graph.microsoft.com/User.Read",
-                "https://graph.microsoft.com/OnlineMeetings.Read"
-            ],
-            prompt: 'select_account'
+                "https://graph.microsoft.com/OnlineMeetings.Read",
+                "offline_access",
+                "openid",
+                "profile",
+                "email"
+            ]
         };
 
-        // Clear any existing accounts
+        // Check if there's a cached account
         const accounts = msalInstance.getAllAccounts();
         if (accounts.length > 0) {
-            accounts.forEach(account => {
-                msalInstance.logoutRedirect({ account });
-            });
+            // Use the first account if available
+            const silentRequest = {
+                scopes: loginRequest.scopes,
+                account: accounts[0],
+                forceRefresh: false
+            };
+
+            try {
+                const response = await msalInstance.acquireTokenSilent(silentRequest);
+                await handleTokenResponse(response);
+                return;
+            } catch (error) {
+                if (error instanceof msal.InteractionRequiredAuthError) {
+                    // Fall back to interaction when silent call fails
+                    await performInteractiveSignIn(loginRequest);
+                }
+            }
+        } else {
+            // No accounts, perform interactive sign in
+            await performInteractiveSignIn(loginRequest);
         }
+    } catch (error) {
+        console.error('Error during sign in:', error);
+    }
+}
 
-        // Use popup for login
+async function performInteractiveSignIn(loginRequest) {
+    try {
         const response = await msalInstance.loginPopup(loginRequest);
-        console.log("Login successful", response);
+        await handleTokenResponse(response);
+    } catch (error) {
+        console.error('Error during interactive sign in:', error);
+    }
+}
 
-        // Get token using silent flow
-        const silentRequest = {
-            scopes: loginRequest.scopes,
-            account: response.account,
-            forceRefresh: true
-        };
-
-        const tokenResponse = await msalInstance.acquireTokenSilent(silentRequest);
-        console.log("Token acquired", tokenResponse);
-
+async function handleTokenResponse(response) {
+    try {
         // Send token to backend
         const backendResponse = await fetch('/auth/callback', {
             method: 'POST',
@@ -40,28 +61,23 @@ async function signIn() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                token: tokenResponse.accessToken,
+                token: response.accessToken,
                 account: response.account
             })
         });
 
         if (backendResponse.ok) {
-            window.location.href = '/dashboard';
+            const data = await backendResponse.json();
+            if (data.redirect) {
+                window.location.href = data.redirect;
+            } else {
+                window.location.href = '/dashboard';
+            }
         } else {
             throw new Error('Backend authentication failed');
         }
     } catch (error) {
-        console.error('Error during sign in:', error);
-        if (error instanceof msal.InteractionRequiredAuthError) {
-            try {
-                // Fallback to interactive method
-                const response = await msalInstance.acquireTokenPopup(loginRequest);
-                console.log("Token acquired through popup", response);
-                window.location.href = '/dashboard';
-            } catch (err) {
-                console.error('Error during interactive token acquisition:', err);
-            }
-        }
+        console.error('Error handling token response:', error);
     }
 }
 
@@ -69,14 +85,12 @@ async function signOut() {
     try {
         const account = msalInstance.getAllAccounts()[0];
         if (account) {
-            // Clear browser state
             await msalInstance.logoutPopup({
                 account: account,
                 postLogoutRedirectUri: window.location.origin
             });
 
-            // Clear local storage
-            localStorage.clear();
+            // Clear session storage
             sessionStorage.clear();
 
             // Redirect to logout endpoint
@@ -144,6 +158,38 @@ async function postAllMatched() {
         console.error('Error posting matched meetings:', error);
     }
 }
+
+// Check authentication state on page load
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const accounts = msalInstance.getAllAccounts();
+        const currentPath = window.location.pathname;
+        
+        if (accounts.length > 0 && currentPath === '/') {
+            // We have an account but we're on the login page
+            // Try silent token acquisition
+            const silentRequest = {
+                scopes: ["https://graph.microsoft.com/User.Read"],
+                account: accounts[0],
+                forceRefresh: false
+            };
+            
+            try {
+                const response = await msalInstance.acquireTokenSilent(silentRequest);
+                if (response) {
+                    window.location.href = '/dashboard';
+                }
+            } catch (error) {
+                if (error instanceof msal.InteractionRequiredAuthError) {
+                    // Token expired or other issue, stay on login page
+                    console.log('Silent token acquisition failed, user needs to sign in');
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error checking authentication state:', error);
+    }
+});
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
