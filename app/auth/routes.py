@@ -10,19 +10,31 @@ from . import bp
 def auth_start():
     """Show the login page"""
     try:
-        # Clear any existing session data
+        # Check if there's a code parameter (from MSAL redirect)
+        if 'code' in request.args:
+            print("Detected code parameter, redirecting to callback")
+            return redirect(url_for('auth.callback'))
+            
+        # Clear any existing session data if logging out
         if 'logging_out' in session:
             session.clear()
             response = make_response(render_template('auth/login.html'))
             # Clear session cookie
             response.set_cookie('session', '', expires=0)
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response.headers['Pragma'] = 'no-cache'
             return response
             
         if current_user.is_authenticated:
             print(f"User {current_user.email} is already authenticated, redirecting to dashboard")
             return redirect(url_for('dashboard.index'))
         
-        return render_template('auth/login.html')
+        # Show login page with no-cache headers
+        response = make_response(render_template('auth/login.html'))
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        return response
+        
     except Exception as e:
         print(f"Error in auth_start: {str(e)}")
         print(traceback.format_exc())
@@ -31,6 +43,13 @@ def auth_start():
 @bp.route('/callback', methods=['GET', 'POST'])
 def callback():
     try:
+        # Handle GET request with code parameter
+        if request.method == 'GET' and 'code' in request.args:
+            print("Received GET request to /callback with code")
+            # Clear any existing session
+            session.clear()
+            return render_template('auth/login.html')
+            
         if request.method == 'POST':
             print("Received POST request to /callback")
             
@@ -82,6 +101,7 @@ def callback():
                 # Store user info in session
                 session['user_email'] = email
                 session['user_name'] = name
+                session.pop('logging_out', None)  # Clear logout flag
                 
                 response_data = {
                     'success': True,
@@ -97,8 +117,8 @@ def callback():
                 print(traceback.format_exc())
                 return jsonify({'error': f'Database error: {str(e)}'}), 500
             
-        # Handle GET request
-        print("Received GET request to /callback")
+        # Handle GET request without code
+        print("Received GET request to /callback without code")
         return redirect(url_for('auth.auth_start'))
 
     except Exception as e:
@@ -123,7 +143,7 @@ def logout():
         
         print(f"User {user_email} logged out successfully")
         
-        # Create response with cleared cookies
+        # Create response with cleared cookies and no-cache headers
         response = jsonify({
             'success': True,
             'redirect': url_for('auth.auth_start'),
@@ -132,6 +152,8 @@ def logout():
         
         # Clear session cookie
         response.set_cookie('session', '', expires=0)
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
         
         return response
         
