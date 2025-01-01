@@ -4,125 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meeting Time Tracker</title>
-    <script src="https://alcdn.msauth.net/browser/2.30.0/js/msal-browser.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        const msalConfig = {
-            auth: {
-                clientId: "{{ config.AZURE_CLIENT_ID }}",
-                authority: "https://login.microsoftonline.com/{{ config.AZURE_TENANT_ID }}",
-                redirectUri: window.location.origin + "/auth/auth-start",
-                navigateToLoginRequestUrl: true,
-                postLogoutRedirectUri: window.location.origin + "/auth/auth-start"
-            },
-            cache: {
-                cacheLocation: "sessionStorage",
-                storeAuthStateInCookie: true,
-                secureCookies: true
-            },
-            system: {
-                loggerOptions: {
-                    logLevel: "Info",
-                    piiLoggingEnabled: false
-                }
-            }
-        };
-
-        // Initialize MSAL instance
-        const msalInstance = new msal.PublicClientApplication(msalConfig);
-
-        // Function to clear MSAL state
-        function clearMsalState() {
-            // Clear storage
-            sessionStorage.clear();
-            localStorage.clear();
-            
-            // Clear MSAL accounts
-            const accounts = msalInstance.getAllAccounts();
-            accounts.forEach(account => {
-                msalInstance.removeAccount(account);
-            });
-        }
-
-        // Handle the redirect promise when page loads
-        msalInstance.handleRedirectPromise()
-            .then(async (response) => {
-                console.log("Handling redirect response:", response);
-                
-                if (response) {
-                    try {
-                        // Get account information
-                        const account = response.account;
-                        console.log("Account info:", account);
-
-                        // Send account info to backend
-                        const result = await fetch('/auth/callback', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({ account: account })
-                        });
-
-                        if (!result.ok) {
-                            throw new Error('Backend authentication failed');
-                        }
-
-                        const data = await result.json();
-                        console.log("Backend response:", data);
-
-                        if (data.redirect) {
-                            window.location.href = data.redirect;
-                        }
-                    } catch (error) {
-                        console.error("Error processing authentication:", error);
-                        clearMsalState();
-                        window.location.href = '/auth/auth-start';
-                    }
-                }
-            })
-            .catch(error => {
-                console.error("Error handling redirect:", error);
-                clearMsalState();
-                window.location.href = '/auth/auth-start';
-            });
-
-        // Handle sign out
-        async function signOut() {
-            try {
-                // Call backend logout endpoint
-                const response = await fetch('/auth/logout');
-                const data = await response.json();
-                
-                if (data.success) {
-                    // Get all accounts before clearing state
-                    const accounts = msalInstance.getAllAccounts();
-                    
-                    // Clear MSAL state
-                    clearMsalState();
-                    
-                    if (accounts.length > 0) {
-                        // Use the first account for logout
-                        msalInstance.logoutRedirect({
-                            account: accounts[0],
-                            postLogoutRedirectUri: window.location.origin + "/auth/auth-start"
-                        });
-                    } else {
-                        // If no accounts found, just redirect
-                        window.location.href = data.redirect;
-                    }
-                } else {
-                    throw new Error(data.error || 'Logout failed');
-                }
-            } catch (error) {
-                console.error("Error during sign out:", error);
-                clearMsalState();
-                window.location.href = '/auth/auth-start';
-            }
-        }
-    </script>
 </head>
 <body class="bg-gray-100">
+    {% if current_user.is_authenticated %}
+    <nav class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <span class="text-lg font-semibold">Meeting Time Tracker</span>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <span class="text-gray-700 mr-4">{{ current_user.name }}</span>
+                    <a href="{{ url_for('auth.logout') }}" 
+                       class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700">
+                        Sign Out
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+    
     {% block content %}{% endblock %}
 </body>
 </html> 

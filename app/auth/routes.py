@@ -1,158 +1,67 @@
-from flask import Blueprint, render_template, redirect, url_for, session, request, current_app, jsonify, make_response
+from flask import Blueprint, render_template, redirect, url_for, session, current_app, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
-import msal
+from flask_oidc import OpenIDConnect
 from app.models import User
-from app import db
-import traceback
+from app import db, oidc
 from . import bp
 
-@bp.route('/auth-start')
-def auth_start():
-    """Show the login page"""
-    try:
-        # Always clear any existing session when hitting auth-start
-        session.clear()
-        
-        # Create response with login page
-        response = make_response(render_template('auth/login.html'))
-        
-        # Clear all cookies and set no-cache headers
-        response.set_cookie('session', '', expires=0)
-        response.set_cookie('remember_token', '', expires=0)
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
-        
-        return response
-        
-    except Exception as e:
-        print(f"Error in auth_start: {str(e)}")
-        print(traceback.format_exc())
-        return jsonify({'error': 'Internal server error'}), 500
+@bp.route('/login')
+def login():
+    """Show login page or redirect to Azure AD"""
+    if oidc.user_loggedin:
+        return redirect(url_for('dashboard.index'))
+    return render_template('auth/login.html')
 
-@bp.route('/callback', methods=['GET', 'POST'])
+@bp.route('/callback')
+@oidc.require_login
 def callback():
+    """Handle the Azure AD callback"""
     try:
-        if request.method == 'GET':
-            # For GET requests, always redirect to auth-start
-            return redirect(url_for('auth.auth_start'))
-            
-        if request.method == 'POST':
-            print("Received POST request to /callback")
-            
-            try:
-                data = request.get_json()
-                print("Received callback data:", data)
-            except Exception as e:
-                print(f"Error parsing JSON: {str(e)}")
-                return jsonify({'error': 'Invalid JSON data'}), 400
-            
-            if not data:
-                print("No data provided in request")
-                return jsonify({'error': 'No data provided'}), 400
-            
-            account_info = data.get('account')
-            print("Account info:", account_info)
-            
-            if not account_info:
-                print("No account info provided")
-                return jsonify({'error': 'No account info provided'}), 400
-            
-            # Get user info from account
-            email = account_info.get('username')
-            name = account_info.get('name', email)
-            
-            print(f"Extracted email: {email}, name: {name}")
-            
-            if not email:
-                print("No email provided in account info")
-                return jsonify({'error': 'No email provided'}), 400
-            
-            try:
-                # Create or update user
-                user = User.query.filter_by(email=email).first()
-                if not user:
-                    print(f"Creating new user: {email}")
-                    user = User(email=email, name=name)
-                    db.session.add(user)
-                elif user.name != name:
-                    print(f"Updating user name from {user.name} to {name}")
-                    user.name = name
-                
-                db.session.commit()
-                print(f"Database operations successful for user: {email}")
-                
-                # Clear any existing session before login
-                session.clear()
-                
-                login_user(user, remember=True)
-                print(f"User logged in successfully: {email}")
-                
-                # Store user info in session
-                session['user_email'] = email
-                session['user_name'] = name
-                
-                response_data = {
-                    'success': True,
-                    'redirect': url_for('dashboard.index'),
-                    'message': 'Successfully logged in'
-                }
-                print("Sending response:", response_data)
-                
-                # Create response with proper headers
-                response = jsonify(response_data)
-                response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-                response.headers['Pragma'] = 'no-cache'
-                response.headers['Expires'] = '0'
-                return response
-            
-            except Exception as e:
-                db.session.rollback()
-                print(f"Database error: {str(e)}")
-                print(traceback.format_exc())
-                return jsonify({'error': f'Database error: {str(e)}'}), 500
+        # Get user info from Azure AD
+        user_info = oidc.user_getinfo(['preferred_username', 'name', 'email'])
+        email = user_info.get('preferred_username') or user_info.get('email')
+        name = user_info.get('name', email)
 
+        if not email:
+            return jsonify({'error': 'No email provided'}), 400
+
+        # Create or update user
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            user = User(email=email, name=name)
+            db.session.add(user)
+        elif user.name != name:
+            user.name = name
+        
+        db.session.commit()
+
+        # Log user in
+        login_user(user)
+        
+        # Store user info in session
+        session['user_email'] = email
+        session['user_name'] = name
+        
+        return redirect(url_for('dashboard.index'))
+        
     except Exception as e:
-        print(f"Unhandled error in callback: {str(e)}")
-        print(traceback.format_exc())
-        return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
+        current_app.logger.error(f"Error in callback: {str(e)}")
+        return jsonify({'error': 'Authentication failed'}), 500
 
 @bp.route('/logout')
 @login_required
 def logout():
     """Handle user logout"""
     try:
-        # Get user info before logout for logging
-        user_email = current_user.email if current_user else 'Unknown'
-        
-        # Clear Flask-Login session
+        # Clear Flask-Login
         logout_user()
         
         # Clear Flask session
         session.clear()
         
-        print(f"User {user_email} logged out successfully")
-        
-        # Create response with cleared cookies and no-cache headers
-        response = jsonify({
-            'success': True,
-            'redirect': url_for('auth.auth_start'),
-            'message': 'Successfully logged out'
-        })
-        
-        # Clear all cookies
-        response.set_cookie('session', '', expires=0)
-        response.set_cookie('remember_token', '', expires=0)
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
-        
-        return response
+        # Redirect to Azure AD logout
+        return redirect(oidc.logout_url)
         
     except Exception as e:
-        print(f"Error in logout: {str(e)}")
-        print(traceback.format_exc())
-        return jsonify({
-            'error': 'Logout failed',
-            'redirect': url_for('auth.auth_start')
-        }), 500 
+        current_app.logger.error(f"Error in logout: {str(e)}")
+        return redirect(url_for('auth.login')) 
