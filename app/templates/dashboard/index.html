@@ -14,7 +14,7 @@
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
                         <span class="text-gray-700 mr-4">{{ user.name }}</span>
-                        <button onclick="handleSignOut()" 
+                        <button onclick="signOut()" 
                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700">
                             Sign Out
                         </button>
@@ -46,57 +46,27 @@
 </div>
 
 <script>
-async function handleSignOut() {
-    try {
-        // Initialize MSAL instance
-        const msalInstance = new msal.PublicClientApplication(msalConfig);
-        
-        // Get all accounts
-        const accounts = msalInstance.getAllAccounts();
-        
-        // First, sign out from our backend
-        const response = await fetch('{{ url_for("auth.logout") }}', {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json'
-            }
-        });
-        
-        const data = await response.json();
-        
-        // Clear browser session storage
-        sessionStorage.clear();
-        localStorage.clear();
-        
-        // Clear all cookies
-        document.cookie.split(";").forEach(function(c) { 
-            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
-        });
-        
-        if (accounts.length > 0) {
-            // Sign out from MSAL with full URL for redirect
-            const redirectUri = window.location.origin + '{{ url_for("auth.auth_start") }}';
-            await msalInstance.logoutRedirect({
-                postLogoutRedirectUri: redirectUri
-            });
-        } else {
-            // If no MSAL accounts, force redirect to login
-            window.location.href = '{{ url_for("auth.auth_start") }}';
+// Prevent caching
+document.addEventListener('DOMContentLoaded', function() {
+    // Add no-cache headers
+    window.onpageshow = function(event) {
+        if (event.persisted) {
+            window.location.reload();
         }
-        
-    } catch (error) {
-        console.error('Logout error:', error);
-        // Force redirect to login on error
+    };
+
+    // Check authentication status
+    const msalInstance = new msal.PublicClientApplication(msalConfig);
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length === 0) {
         window.location.href = '{{ url_for("auth.auth_start") }}';
     }
-}
-
-// Prevent back button from returning to dashboard after logout
-window.addEventListener('pageshow', function(event) {
-    if (event.persisted) {
-        // Page was loaded from cache (back button)
-        window.location.reload();
-    }
 });
+
+// Disable browser back button
+history.pushState(null, null, location.href);
+window.onpopstate = function () {
+    history.go(1);
+};
 </script>
 {% endblock %} 

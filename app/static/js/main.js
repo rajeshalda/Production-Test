@@ -13,30 +13,9 @@ async function signIn() {
     };
 
     try {
-        // Check for existing session
-        const accounts = msalInstance.getAllAccounts();
-        if (accounts.length > 0) {
-            // Try silent token acquisition
-            try {
-                const silentRequest = {
-                    scopes: loginRequest.scopes,
-                    account: accounts[0]
-                };
-                const response = await msalInstance.acquireTokenSilent(silentRequest);
-                if (response) {
-                    window.location.href = '/dashboard';
-                    return;
-                }
-            } catch (error) {
-                if (error instanceof msal.InteractionRequiredAuthError) {
-                    // Token expired or other issue, proceed with login
-                    console.log('Silent token acquisition failed, proceeding with redirect');
-                }
-            }
-        }
-
         // Clear any existing state before proceeding
         sessionStorage.clear();
+        localStorage.clear();
 
         // Proceed with login
         await msalInstance.loginRedirect(loginRequest);
@@ -50,15 +29,48 @@ async function signIn() {
 
 async function signOut() {
     try {
-        const account = msalInstance.getAllAccounts()[0];
-        if (account) {
+        // First, sign out from our backend
+        const response = await fetch('/auth/logout', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+
+        // Clear all browser storage
+        sessionStorage.clear();
+        localStorage.clear();
+        
+        // Clear all cookies
+        document.cookie.split(";").forEach(function(c) { 
+            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+        });
+
+        // Get MSAL instance and accounts
+        const msalInstance = new msal.PublicClientApplication(msalConfig);
+        const accounts = msalInstance.getAllAccounts();
+
+        if (accounts.length > 0) {
+            // Clear MSAL cache for all accounts
+            accounts.forEach(account => {
+                msalInstance.clearCache(account);
+            });
+
+            // Perform MSAL logout
             await msalInstance.logoutRedirect({
-                account: account,
-                postLogoutRedirectUri: window.location.origin
+                onRedirectNavigate: () => {
+                    window.location.href = '/auth/auth-start';
+                    return false;
+                }
             });
         }
+
+        // Force redirect to login page
+        window.location.href = '/auth/auth-start';
     } catch (error) {
         console.error('Error during sign out:', error);
+        // Force redirect to login page on error
+        window.location.href = '/auth/auth-start';
     }
 }
 
@@ -180,5 +192,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const postAllButton = document.querySelector('[data-action="post-all"]');
     if (postAllButton) {
         postAllButton.addEventListener('click', postAllMatched);
+    }
+
+    // Prevent back button from returning to dashboard after logout
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted) {
+            // Page was loaded from cache (back button)
+            window.location.reload();
+        }
+    });
+
+    // Prevent caching of dashboard page
+    if (window.location.pathname.startsWith('/dashboard')) {
+        if (window.performance && window.performance.navigation.type === window.performance.navigation.TYPE_BACK_FORWARD) {
+            window.location.reload();
+        }
     }
 }); 
