@@ -36,15 +36,26 @@
         statusBox.classList.remove('hidden');
     }
 
+    // Function to clear MSAL state
+    function clearMsalState() {
+        // Clear storage
+        sessionStorage.clear();
+        localStorage.clear();
+        
+        // Clear MSAL accounts
+        const accounts = msalInstance.getAllAccounts();
+        accounts.forEach(account => {
+            msalInstance.removeAccount(account);
+        });
+    }
+
     // Handle sign in
     async function handleSignIn() {
         try {
             showStatus('Starting sign in process...', 'info');
             
-            // Clear any existing state
-            sessionStorage.clear();
-            localStorage.clear();
-            msalInstance.clearCache();
+            // Clear existing state
+            clearMsalState();
             
             // Get login request
             const loginRequest = {
@@ -68,10 +79,8 @@
         
         if (error) {
             showStatus('Authentication error: ' + error, 'error');
-            // Clear any cached state
-            sessionStorage.clear();
-            localStorage.clear();
-            msalInstance.clearCache();
+            // Clear state
+            clearMsalState();
         }
     });
 </script>

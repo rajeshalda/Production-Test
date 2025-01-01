@@ -31,6 +31,19 @@
         // Initialize MSAL instance
         const msalInstance = new msal.PublicClientApplication(msalConfig);
 
+        // Function to clear MSAL state
+        function clearMsalState() {
+            // Clear storage
+            sessionStorage.clear();
+            localStorage.clear();
+            
+            // Clear MSAL accounts
+            const accounts = msalInstance.getAllAccounts();
+            accounts.forEach(account => {
+                msalInstance.removeAccount(account);
+            });
+        }
+
         // Handle the redirect promise when page loads
         msalInstance.handleRedirectPromise()
             .then(async (response) => {
@@ -63,15 +76,14 @@
                         }
                     } catch (error) {
                         console.error("Error processing authentication:", error);
-                        // Redirect to auth-start on error
+                        clearMsalState();
                         window.location.href = '/auth/auth-start';
                     }
                 }
             })
             .catch(error => {
                 console.error("Error handling redirect:", error);
-                // Clear any cached data and redirect to auth-start
-                msalInstance.clearCache();
+                clearMsalState();
                 window.location.href = '/auth/auth-start';
             });
 
@@ -83,20 +95,20 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    // Clear MSAL cache
-                    msalInstance.clearCache();
-                    
-                    // Get all accounts and remove them
+                    // Get all accounts before clearing state
                     const accounts = msalInstance.getAllAccounts();
-                    accounts.forEach(account => {
+                    
+                    // Clear MSAL state
+                    clearMsalState();
+                    
+                    if (accounts.length > 0) {
+                        // Use the first account for logout
                         msalInstance.logoutRedirect({
-                            account: account,
+                            account: accounts[0],
                             postLogoutRedirectUri: window.location.origin + "/auth/auth-start"
                         });
-                    });
-                    
-                    // If no accounts found, just redirect
-                    if (accounts.length === 0) {
+                    } else {
+                        // If no accounts found, just redirect
                         window.location.href = data.redirect;
                     }
                 } else {
@@ -104,6 +116,7 @@
                 }
             } catch (error) {
                 console.error("Error during sign out:", error);
+                clearMsalState();
                 window.location.href = '/auth/auth-start';
             }
         }
