@@ -36,78 +36,42 @@
         statusBox.classList.remove('hidden');
     }
 
-    // Function to clear all browser state
-    function clearBrowserState() {
-        // Clear storage
-        sessionStorage.clear();
-        localStorage.clear();
-        
-        // Clear cookies
-        document.cookie.split(";").forEach(function(c) { 
-            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
-        });
-        
-        // Clear MSAL cache
-        try {
-            const msalInstance = new msal.PublicClientApplication(msalConfig);
-            const accounts = msalInstance.getAllAccounts();
-            accounts.forEach(account => {
-                msalInstance.clearCache(account);
-            });
-        } catch (error) {
-            console.error('Error clearing MSAL cache:', error);
-        }
-    }
-
-    // Handle sign in with proper cleanup
+    // Handle sign in
     async function handleSignIn() {
         try {
-            // Show status
             showStatus('Starting sign in process...', 'info');
             
-            // Clear all browser state
-            clearBrowserState();
+            // Clear any existing state
+            sessionStorage.clear();
+            localStorage.clear();
+            msalInstance.clearCache();
             
-            // Initialize new MSAL instance
-            const msalInstance = new msal.PublicClientApplication(msalConfig);
-            
-            // Proceed with login
-            await msalInstance.loginRedirect({
+            // Get login request
+            const loginRequest = {
                 scopes: ["openid", "profile", "User.Read"],
-                prompt: "select_account"
-            });
+                prompt: "select_account",
+                state: Date.now().toString()  // Add unique state
+            };
+            
+            // Start login process
+            await msalInstance.loginRedirect(loginRequest);
         } catch (error) {
             showStatus('Sign in error: ' + error.message, 'error');
             console.error('Sign in error:', error);
-            
-            // If there's an error, clear state again
-            clearBrowserState();
         }
     }
 
-    // Clear state and check URL parameters on load
+    // Handle page load
     window.addEventListener('load', function() {
-        // Clear browser state on page load
-        clearBrowserState();
-        
         const urlParams = new URLSearchParams(window.location.search);
         const error = urlParams.get('error');
-        const code = urlParams.get('code');
         
         if (error) {
             showStatus('Authentication error: ' + error, 'error');
-        } else if (code) {
-            showStatus('Processing authentication...', 'info');
-            // Clear the URL without reloading
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
-    });
-
-    // Prevent caching
-    window.addEventListener('pageshow', function(event) {
-        if (event.persisted) {
-            // Page was loaded from cache (back button)
-            window.location.reload();
+            // Clear any cached state
+            sessionStorage.clear();
+            localStorage.clear();
+            msalInstance.clearCache();
         }
     });
 </script>

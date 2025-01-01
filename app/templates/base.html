@@ -4,131 +4,112 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meeting Time Tracker</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://alcdn.msauth.net/browser/2.30.0/js/msal-browser.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        // Function to show status if available
-        function showStatus(message, type = 'info') {
-            const statusBox = document.getElementById('statusBox');
-            const statusMessage = document.getElementById('statusMessage');
-            if (statusBox && statusMessage) {
-                statusBox.className = 'p-4 my-4 rounded-lg ' + 
-                    (type === 'error' ? 'bg-red-100 text-red-700' : 
-                     type === 'success' ? 'bg-green-100 text-green-700' : 
-                     'bg-blue-100 text-blue-700');
-                statusMessage.textContent = message;
-                statusBox.classList.remove('hidden');
-            }
-            console.log('Status:', message, '(Type:', type, ')');
-        }
-
         const msalConfig = {
             auth: {
-                clientId: "9ec41cd0-ae8c-4dd5-bc84-a3aeea4bda54",
-                authority: "https://login.microsoftonline.com/a5ae9ae1-3c47-4b70-b92c-ac3a0efffc6a",
-                redirectUri: "https://production-test-ggd3cccmbgg7f6hd.centralindia-01.azurewebsites.net/auth/callback"
+                clientId: "{{ config.AZURE_CLIENT_ID }}",
+                authority: "https://login.microsoftonline.com/{{ config.AZURE_TENANT_ID }}",
+                redirectUri: window.location.origin + "/auth/auth-start",
+                navigateToLoginRequestUrl: true,
+                postLogoutRedirectUri: window.location.origin + "/auth/auth-start"
             },
             cache: {
                 cacheLocation: "sessionStorage",
-                storeAuthStateInCookie: true
+                storeAuthStateInCookie: true,
+                secureCookies: true
+            },
+            system: {
+                loggerOptions: {
+                    logLevel: "Info",
+                    piiLoggingEnabled: false
+                }
             }
         };
 
-        const loginRequest = {
-            scopes: ["openid", "profile", "User.Read"],
-            prompt: "select_account"
-        };
-
+        // Initialize MSAL instance
         const msalInstance = new msal.PublicClientApplication(msalConfig);
 
-        // Handle the redirect promise when the page loads
-        async function handleMsalResponse() {
-            try {
-                // Only handle authentication on login-related pages
-                if (!window.location.pathname.startsWith('/auth/')) {
-                    return;
-                }
-
-                showStatus('Starting authentication check...', 'info');
-                console.log('Starting authentication check...');
-                
-                const response = await msalInstance.handleRedirectPromise();
-                console.log('Handle redirect response:', response);
+        // Handle the redirect promise when page loads
+        msalInstance.handleRedirectPromise()
+            .then(async (response) => {
+                console.log("Handling redirect response:", response);
                 
                 if (response) {
-                    showStatus('Got authentication response', 'success');
-                    console.log('Full auth response:', response);
-                    
                     try {
-                        showStatus('Sending token to backend...', 'info');
-                        const backendResponse = await fetch('/auth/callback', {
+                        // Get account information
+                        const account = response.account;
+                        console.log("Account info:", account);
+
+                        // Send account info to backend
+                        const result = await fetch('/auth/callback', {
                             method: 'POST',
                             headers: {
-                                'Content-Type': 'application/json'
+                                'Content-Type': 'application/json',
                             },
-                            body: JSON.stringify({
-                                token: response.accessToken,
-                                account: response.account
-                            })
+                            body: JSON.stringify({ account: account })
                         });
-                        
-                        const data = await backendResponse.json();
-                        console.log('Backend response:', data);
-                        
-                        if (!backendResponse.ok) {
-                            throw new Error(data.error || `Backend returned ${backendResponse.status}`);
+
+                        if (!result.ok) {
+                            throw new Error('Backend authentication failed');
                         }
-                        
-                        showStatus('Login successful! Redirecting...', 'success');
-                        setTimeout(() => {
-                            window.location.href = data.redirect || '/dashboard';
-                        }, 1000);
+
+                        const data = await result.json();
+                        console.log("Backend response:", data);
+
+                        if (data.redirect) {
+                            window.location.href = data.redirect;
+                        }
                     } catch (error) {
-                        showStatus('Backend error: ' + error.message, 'error');
-                        console.error('Backend error:', error);
+                        console.error("Error processing authentication:", error);
+                        // Redirect to auth-start on error
+                        window.location.href = '/auth/auth-start';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error("Error handling redirect:", error);
+                // Clear any cached data and redirect to auth-start
+                msalInstance.clearCache();
+                window.location.href = '/auth/auth-start';
+            });
+
+        // Handle sign out
+        async function signOut() {
+            try {
+                // Call backend logout endpoint
+                const response = await fetch('/auth/logout');
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Clear MSAL cache
+                    msalInstance.clearCache();
+                    
+                    // Get all accounts and remove them
+                    const accounts = msalInstance.getAllAccounts();
+                    accounts.forEach(account => {
+                        msalInstance.logoutRedirect({
+                            account: account,
+                            postLogoutRedirectUri: window.location.origin + "/auth/auth-start"
+                        });
+                    });
+                    
+                    // If no accounts found, just redirect
+                    if (accounts.length === 0) {
+                        window.location.href = data.redirect;
                     }
                 } else {
-                    // Only check and redirect on login pages
-                    if (window.location.pathname === '/auth/auth-start') {
-                        const accounts = msalInstance.getAllAccounts();
-                        if (accounts.length > 0) {
-                            showStatus('Already authenticated, redirecting to dashboard...', 'info');
-                            window.location.href = '/dashboard';
-                            return;
-                        }
-                    }
+                    throw new Error(data.error || 'Logout failed');
                 }
             } catch (error) {
-                showStatus('Auth error: ' + error.message, 'error');
-                console.error('Auth error details:', error);
-                if (error.errorCode === 'invalid_request') {
-                    showStatus('Please clear your browser cache and try again', 'info');
-                }
+                console.error("Error during sign out:", error);
+                window.location.href = '/auth/auth-start';
             }
         }
-
-        // Simple login function
-        async function signIn() {
-            try {
-                showStatus('Starting login...', 'info');
-                console.log('Starting login process...');
-                await msalInstance.loginRedirect(loginRequest);
-            } catch (error) {
-                showStatus('Login error: ' + error.message, 'error');
-                console.error('Login error details:', error);
-            }
-        }
-
-        // Initialize authentication handling only on auth pages
-        window.addEventListener('load', () => {
-            if (window.location.pathname.startsWith('/auth/')) {
-                handleMsalResponse();
-            }
-        });
     </script>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </head>
-<body class="bg-gray-50">
+<body class="bg-gray-100">
     {% block content %}{% endblock %}
 </body>
 </html> 
