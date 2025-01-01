@@ -10,10 +10,13 @@ from . import bp
 def auth_start():
     """Show the login page"""
     try:
-        # If user is already authenticated, redirect to dashboard
-        if current_user.is_authenticated:
+        # If user is already authenticated and not explicitly logging out
+        if current_user.is_authenticated and 'logging_out' not in session:
             print(f"User {current_user.email} is already authenticated, redirecting to dashboard")
             return redirect(url_for('dashboard.index'))
+        
+        # Clear any lingering session data
+        session.clear()
         
         # Show login page for non-authenticated users
         print("Showing login page for non-authenticated user")
@@ -77,6 +80,7 @@ def callback():
                 # Store user info in session
                 session['user_email'] = email
                 session['user_name'] = name
+                session.pop('logging_out', None)  # Clear any logout flag
                 
                 response_data = {
                     'success': True,
@@ -93,7 +97,7 @@ def callback():
                 return jsonify({'error': f'Database error: {str(e)}'}), 500
             
         # Handle GET request - redirect to dashboard if already authenticated
-        if current_user.is_authenticated:
+        if current_user.is_authenticated and 'logging_out' not in session:
             print(f"User {current_user.email} is already authenticated, redirecting to dashboard")
             return redirect(url_for('dashboard.index'))
             
@@ -112,6 +116,9 @@ def logout():
     try:
         # Get user info before logout for logging
         user_email = current_user.email if current_user else 'Unknown'
+        
+        # Set logout flag to prevent redirect loops
+        session['logging_out'] = True
         
         # Clear Flask-Login session
         logout_user()

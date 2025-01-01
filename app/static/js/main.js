@@ -29,6 +29,10 @@ async function signIn() {
 
 async function signOut() {
     try {
+        // Get MSAL instance and accounts first
+        const msalInstance = new msal.PublicClientApplication(msalConfig);
+        const accounts = msalInstance.getAllAccounts();
+
         // First, sign out from our backend
         const response = await fetch('/auth/logout', {
             method: 'GET',
@@ -46,27 +50,21 @@ async function signOut() {
             document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
         });
 
-        // Get MSAL instance and accounts
-        const msalInstance = new msal.PublicClientApplication(msalConfig);
-        const accounts = msalInstance.getAllAccounts();
-
         if (accounts.length > 0) {
             // Clear MSAL cache for all accounts
             accounts.forEach(account => {
                 msalInstance.clearCache(account);
             });
 
-            // Perform MSAL logout
+            // Perform MSAL logout with absolute URL
+            const logoutUri = window.location.origin + '/auth/auth-start';
             await msalInstance.logoutRedirect({
-                onRedirectNavigate: () => {
-                    window.location.href = '/auth/auth-start';
-                    return false;
-                }
+                postLogoutRedirectUri: logoutUri
             });
+        } else {
+            // If no MSAL accounts, just redirect to login
+            window.location.href = '/auth/auth-start';
         }
-
-        // Force redirect to login page
-        window.location.href = '/auth/auth-start';
     } catch (error) {
         console.error('Error during sign out:', error);
         // Force redirect to login page on error
