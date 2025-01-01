@@ -33,14 +33,6 @@ async function signOut() {
         const msalInstance = new msal.PublicClientApplication(msalConfig);
         const accounts = msalInstance.getAllAccounts();
 
-        // First, sign out from our backend
-        const response = await fetch('/auth/logout', {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json'
-            }
-        });
-
         // Clear all browser storage
         sessionStorage.clear();
         localStorage.clear();
@@ -50,21 +42,44 @@ async function signOut() {
             document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
         });
 
+        // Sign out from MSAL first if there are accounts
         if (accounts.length > 0) {
-            // Clear MSAL cache for all accounts
-            accounts.forEach(account => {
-                msalInstance.clearCache(account);
+            try {
+                // Clear MSAL cache for all accounts
+                accounts.forEach(account => {
+                    msalInstance.clearCache(account);
+                });
+
+                // Perform MSAL logout
+                await msalInstance.logoutPopup({
+                    account: accounts[0],
+                    mainWindowRedirectUri: window.location.origin + '/auth/auth-start'
+                });
+            } catch (msalError) {
+                console.error('MSAL logout error:', msalError);
+            }
+        }
+
+        // Then sign out from our backend
+        try {
+            const response = await fetch('/auth/logout', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                }
             });
 
-            // Perform MSAL logout with absolute URL
-            const logoutUri = window.location.origin + '/auth/auth-start';
-            await msalInstance.logoutRedirect({
-                postLogoutRedirectUri: logoutUri
-            });
-        } else {
-            // If no MSAL accounts, just redirect to login
-            window.location.href = '/auth/auth-start';
+            if (!response.ok) {
+                throw new Error('Backend logout failed');
+            }
+        } catch (backendError) {
+            console.error('Backend logout error:', backendError);
         }
+
+        // Final cleanup and redirect
+        sessionStorage.clear();
+        localStorage.clear();
+        window.location.href = '/auth/auth-start';
     } catch (error) {
         console.error('Error during sign out:', error);
         // Force redirect to login page on error
