@@ -36,40 +36,60 @@
         statusBox.classList.remove('hidden');
     }
 
-    // Handle sign in with proper cleanup
-    async function handleSignIn() {
+    // Function to clear all browser state
+    function clearBrowserState() {
+        // Clear storage
+        sessionStorage.clear();
+        localStorage.clear();
+        
+        // Clear cookies
+        document.cookie.split(";").forEach(function(c) { 
+            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+        });
+        
+        // Clear MSAL cache
         try {
-            // Clear any existing state
-            sessionStorage.clear();
-            localStorage.clear();
-            
-            // Clear all cookies
-            document.cookie.split(";").forEach(function(c) { 
-                document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
-            });
-            
-            // Initialize MSAL
             const msalInstance = new msal.PublicClientApplication(msalConfig);
-            
-            // Clear any existing accounts
             const accounts = msalInstance.getAllAccounts();
-            if (accounts.length > 0) {
-                accounts.forEach(account => {
-                    msalInstance.clearCache(account);
-                });
-            }
-            
-            // Show status and proceed with login
-            showStatus('Starting sign in process...', 'info');
-            await signIn();
+            accounts.forEach(account => {
+                msalInstance.clearCache(account);
+            });
         } catch (error) {
-            showStatus('Sign in error: ' + error.message, 'error');
-            console.error('Sign in error:', error);
+            console.error('Error clearing MSAL cache:', error);
         }
     }
 
-    // Check URL parameters on load
-    window.onload = function() {
+    // Handle sign in with proper cleanup
+    async function handleSignIn() {
+        try {
+            // Show status
+            showStatus('Starting sign in process...', 'info');
+            
+            // Clear all browser state
+            clearBrowserState();
+            
+            // Initialize new MSAL instance
+            const msalInstance = new msal.PublicClientApplication(msalConfig);
+            
+            // Proceed with login
+            await msalInstance.loginRedirect({
+                scopes: ["openid", "profile", "User.Read"],
+                prompt: "select_account"
+            });
+        } catch (error) {
+            showStatus('Sign in error: ' + error.message, 'error');
+            console.error('Sign in error:', error);
+            
+            // If there's an error, clear state again
+            clearBrowserState();
+        }
+    }
+
+    // Clear state and check URL parameters on load
+    window.addEventListener('load', function() {
+        // Clear browser state on page load
+        clearBrowserState();
+        
         const urlParams = new URLSearchParams(window.location.search);
         const error = urlParams.get('error');
         const code = urlParams.get('code');
@@ -77,16 +97,18 @@
         if (error) {
             showStatus('Authentication error: ' + error, 'error');
         } else if (code) {
-            // If we have a code, we're in the middle of authentication
             showStatus('Processing authentication...', 'info');
-            // Clear the URL without reloading the page
-            window.history.replaceState({}, document.title, '/auth/auth-start');
+            // Clear the URL without reloading
+            window.history.replaceState({}, document.title, window.location.pathname);
         }
-    }
+    });
 
     // Prevent caching
-    if (window.performance && window.performance.navigation.type === window.performance.navigation.TYPE_BACK_FORWARD) {
-        window.location.reload();
-    }
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted) {
+            // Page was loaded from cache (back button)
+            window.location.reload();
+        }
+    });
 </script>
 {% endblock %} 

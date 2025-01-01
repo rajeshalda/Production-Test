@@ -10,29 +10,19 @@ from . import bp
 def auth_start():
     """Show the login page"""
     try:
-        # Check if there's a code parameter (from MSAL redirect)
-        if 'code' in request.args:
-            print("Detected code parameter, redirecting to callback")
-            return redirect(url_for('auth.callback'))
-            
-        # Clear any existing session data if logging out
-        if 'logging_out' in session:
-            session.clear()
-            response = make_response(render_template('auth/login.html'))
-            # Clear session cookie
-            response.set_cookie('session', '', expires=0)
-            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-            response.headers['Pragma'] = 'no-cache'
-            return response
-            
-        if current_user.is_authenticated:
-            print(f"User {current_user.email} is already authenticated, redirecting to dashboard")
-            return redirect(url_for('dashboard.index'))
+        # Always clear any existing session when hitting auth-start
+        session.clear()
         
-        # Show login page with no-cache headers
+        # Create response with login page
         response = make_response(render_template('auth/login.html'))
+        
+        # Clear all cookies and set no-cache headers
+        response.set_cookie('session', '', expires=0)
+        response.set_cookie('remember_token', '', expires=0)
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
         return response
         
     except Exception as e:
@@ -43,12 +33,9 @@ def auth_start():
 @bp.route('/callback', methods=['GET', 'POST'])
 def callback():
     try:
-        # Handle GET request with code parameter
-        if request.method == 'GET' and 'code' in request.args:
-            print("Received GET request to /callback with code")
-            # Clear any existing session
-            session.clear()
-            return render_template('auth/login.html')
+        if request.method == 'GET':
+            # For GET requests, always redirect to auth-start
+            return redirect(url_for('auth.auth_start'))
             
         if request.method == 'POST':
             print("Received POST request to /callback")
@@ -95,13 +82,15 @@ def callback():
                 db.session.commit()
                 print(f"Database operations successful for user: {email}")
                 
+                # Clear any existing session before login
+                session.clear()
+                
                 login_user(user, remember=True)
                 print(f"User logged in successfully: {email}")
                 
                 # Store user info in session
                 session['user_email'] = email
                 session['user_name'] = name
-                session.pop('logging_out', None)  # Clear logout flag
                 
                 response_data = {
                     'success': True,
@@ -109,17 +98,19 @@ def callback():
                     'message': 'Successfully logged in'
                 }
                 print("Sending response:", response_data)
-                return jsonify(response_data)
+                
+                # Create response with proper headers
+                response = jsonify(response_data)
+                response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+                response.headers['Pragma'] = 'no-cache'
+                response.headers['Expires'] = '0'
+                return response
             
             except Exception as e:
                 db.session.rollback()
                 print(f"Database error: {str(e)}")
                 print(traceback.format_exc())
                 return jsonify({'error': f'Database error: {str(e)}'}), 500
-            
-        # Handle GET request without code
-        print("Received GET request to /callback without code")
-        return redirect(url_for('auth.auth_start'))
 
     except Exception as e:
         print(f"Unhandled error in callback: {str(e)}")
@@ -139,7 +130,6 @@ def logout():
         
         # Clear Flask session
         session.clear()
-        session['logging_out'] = True
         
         print(f"User {user_email} logged out successfully")
         
@@ -150,10 +140,12 @@ def logout():
             'message': 'Successfully logged out'
         })
         
-        # Clear session cookie
+        # Clear all cookies
         response.set_cookie('session', '', expires=0)
+        response.set_cookie('remember_token', '', expires=0)
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
         
         return response
         
